@@ -149,6 +149,9 @@ describe("Result ADT", () => {
       Err: (code) => `Error code: ${code}`,
     });
     expect(errStr).toBe("Error code: 500");
+
+    expect(ok.$match({ _: () => "fallback" })).toBe("fallback");
+    expect(err.$match({ _: () => "fallback" })).toBe("fallback");
   });
 
   it("fails type check and throws PanicError on non-exhaustive match", () => {
@@ -189,6 +192,10 @@ describe("Result ADT", () => {
       expect(result2.value.$variant).toBe("Err");
       expect(result2.value.$value).toBe("fatal");
     }
+
+    const errIter = Err("fatal")[Symbol.iterator]();
+    expect(errIter.next().value.$value).toBe("fatal");
+    expect(() => errIter.next()).toThrowError(PanicError);
   });
 
   it("widens Ok and Err seamlessly without type casting", () => {

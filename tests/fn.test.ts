@@ -213,5 +213,11 @@ describe("Try Runner - fn", () => {
       expect(step2(5).unwrap()).toBe(20);
       expect(step2(-5).isErr()).toBe(true);
     });
+
+    it("handles regular non-generator function transparently", () => {
+      // @ts-expect-error Testing non-generator runtime fallback
+      const regular = fn(() => 42);
+      expect(regular()).toBe(42);
+    });
   });
 });

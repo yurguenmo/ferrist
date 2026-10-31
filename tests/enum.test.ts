@@ -1,5 +1,5 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
-import { Enum, Err, type Infer, Ok, PanicError } from "../src/index.js";
+import { ENUM_INSTANCE, Enum, Err, type Infer, Ok, PanicError } from "../src/index.js";
 
 describe("Enum - Unit Enum (C-Like)", () => {
   const OrderStatus = Enum<{
@@ -50,6 +50,8 @@ describe("Enum - Unit Enum (C-Like)", () => {
     const completed = OrderStatus.Completed;
     expect(completed.isTerminal()).toBe(true);
     expect(completed.canCancel()).toBe(false);
+
+    expect(status2.$match({ Pending: () => "unit_called", _: () => "other" })).toBe("unit_called");
   });
 
   it("rejects arguments passed to Unit variant constructors", () => {
@@ -88,6 +90,21 @@ describe("Enum - Unit Enum (C-Like)", () => {
 
     expectTypeOf(msg).toEqualTypeOf<string>();
     expect(msg).toBe("not_success");
+  });
+
+  it("throws PanicError on unit variant when matched non-exhaustively", () => {
+    expect(() =>
+      // @ts-expect-error Missing Pending branch in exhaustive match
+      OrderStatus.Pending.$match({ Completed: () => "ok" }),
+    ).toThrowError(PanicError);
+  });
+
+  it("handles Symbol property access on Enum proxy", () => {
+    // @ts-expect-error Non-existent symbol access on Enum proxy
+    expect(OrderStatus[Symbol.for("custom")]).toBeUndefined();
+    // @ts-expect-error Non-existent symbol access on Enum proxy
+    expect(OrderStatus[Symbol.toStringTag]).toBeUndefined();
+    expect(OrderStatus[ENUM_INSTANCE]).toBeUndefined();
   });
 });
 
@@ -180,6 +197,8 @@ describe("Enum - Data Variants (Array, Primitive, and Object)", () => {
       // @ts-expect-error Missing Click, PageLoad, Paste branches in exhaustive match
       ev.$match({ PageLoad: () => "ok" }),
     ).toThrowError(PanicError);
+
+    expect(ev.$match({ _: () => "fallback" })).toBe("fallback");
   });
 });
 

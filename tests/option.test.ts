@@ -133,6 +133,9 @@ describe("Option ADT", () => {
       None: () => "Empty",
     });
     expect(nStr).toBe("Empty");
+
+    expect(some.$match({ _: () => "fallback" })).toBe("fallback");
+    expect(none.$match({ _: () => "fallback" })).toBe("fallback");
   });
 
   it("fails type check and throws PanicError on non-exhaustive match", () => {
@@ -170,6 +173,10 @@ describe("Option ADT", () => {
     // None yields this (None singleton) for the Try runner to intercept
     expect(result2.done).toBe(false);
     expect(result2.value).toBe(None);
+
+    const noneIter = None[Symbol.iterator]();
+    expect(noneIter.next().value).toBe(None);
+    expect(() => noneIter.next()).toThrowError(PanicError);
   });
 
   it("widens None seamlessly to Option<T> without explicit casting", () => {
