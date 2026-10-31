@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/yurguenmo/ferrist/compare/v1.1.0...v1.2.0) (2026-10-31)
+
+
+### Features
+
+* **match:** support independent return types per arm across Result, Option, and Enum ([ab43742](https://github.com/yurguenmo/ferrist/commit/ab437427120b830c30de1444b5efde95de4deaf0))
+
 ## [1.1.0](https://github.com/yurguenmo/ferrist/compare/v1.0.0...v1.1.0) (2026-10-31)
 
 
