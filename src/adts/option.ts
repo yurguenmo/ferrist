@@ -9,14 +9,14 @@ import { panic } from "../panic.js";
 /**
  * Pattern matching arms for Option<T>.
  */
-export interface OptionMatchArms<T, R> {
-  Some: (val: T) => R;
-  None: () => R;
+export interface OptionMatchArms<T, RSome = any, RNone = RSome> {
+  Some: (val: T) => RSome;
+  None: () => RNone;
 }
 
-export type PartialOptionMatchArms<T, R> =
-  | OptionMatchArms<T, R>
-  | (Partial<OptionMatchArms<T, R>> & { _(): R });
+export type PartialOptionMatchArms<T, RSome = any, RNone = RSome, RWild = never> =
+  | OptionMatchArms<T, RSome, RNone>
+  | (Partial<OptionMatchArms<T, RSome, RNone>> & { _(): RWild });
 
 /**
  * Present variant of Option representing a contained value of type `T`.
@@ -34,7 +34,9 @@ export interface ISome<T> {
   $is<V extends "Some" | "None">(variant: V): this is V extends "Some" ? ISome<T> : never;
 
   /** Exhaustive pattern matching over `Some` and `None`. */
-  $match<R>(arms: PartialOptionMatchArms<T, R>): R;
+  $match<RSome = never, RNone = RSome, RWild = never>(
+    arms: PartialOptionMatchArms<T, RSome, RNone, RWild>,
+  ): RSome | RNone | RWild;
 
   /** Unwraps the contained value `T`. Never throws on `Some`. */
   unwrap(): T;
@@ -72,7 +74,9 @@ export interface INone<T = never> {
   $is<V extends "Some" | "None">(variant: V): this is V extends "None" ? INone<T> : never;
 
   /** Exhaustive pattern matching over `Some` and `None`. */
-  $match<R>(arms: PartialOptionMatchArms<never, R>): R;
+  $match<RSome = never, RNone = RSome, RWild = never>(
+    arms: PartialOptionMatchArms<never, RSome, RNone, RWild>,
+  ): RSome | RNone | RWild;
 
   /** Panics because the option is `None`. */
   unwrap(): never;
@@ -113,12 +117,14 @@ class SomeImpl<T> implements ISome<T> {
     return variant === "Some";
   }
 
-  $match<R>(arms: PartialOptionMatchArms<T, R>): R {
+  $match<RSome = never, RNone = RSome, RWild = never>(
+    arms: PartialOptionMatchArms<T, RSome, RNone, RWild>,
+  ): RSome | RNone | RWild {
     if ("Some" in arms && typeof arms.Some === "function") {
       return arms.Some(this.$value);
     }
     if ("_" in arms && typeof arms._ === "function") {
-      return arms._();
+      return (arms as any)._();
     }
     return panic("Non-exhaustive pattern match on Option.Some");
   }
@@ -164,12 +170,14 @@ class NoneImpl implements INone<never> {
     return variant === "None";
   }
 
-  $match<R>(arms: PartialOptionMatchArms<never, R>): R {
+  $match<RSome = never, RNone = RSome, RWild = never>(
+    arms: PartialOptionMatchArms<never, RSome, RNone, RWild>,
+  ): RSome | RNone | RWild {
     if ("None" in arms && typeof arms.None === "function") {
       return arms.None();
     }
     if ("_" in arms && typeof arms._ === "function") {
-      return arms._();
+      return (arms as any)._();
     }
     return panic("Called Option.unwrap() on a None value");
   }

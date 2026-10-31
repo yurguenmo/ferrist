@@ -40,7 +40,7 @@ export type VariantOf<T, K extends VariantNames<T> = VariantNames<T>> = Omit<
  * - Otherwise, the handler receives the payload: `(val: VMap[K]) => R`.
  * - Wildcard `_(): R` can be provided for partial matching.
  */
-export type MatchArms<VMap extends Record<string, any>, R> =
+export type MatchArms<VMap extends Record<string, any>, R = unknown> =
   | {
       [K in keyof VMap]: [VMap[K]] extends [never]
         ? () => R
@@ -57,6 +57,13 @@ export type MatchArms<VMap extends Record<string, any>, R> =
     }> & {
       _(): R;
     });
+
+/**
+ * Infers the union of return types across all provided pattern matching arms.
+ */
+export type InferMatchReturn<Arms> = {
+  [K in keyof Arms]: Arms[K] extends (...args: any[]) => infer R ? R : never;
+}[keyof Arms];
 
 /**
  * Argument tuple for variant constructors based on payload type.
@@ -87,6 +94,7 @@ export type VariantFactory<VMap extends Record<string, any>, K extends keyof VMa
   $is<VariantName extends keyof VMap & string>(variant: VariantName): boolean;
   /** Pattern matching on the unit instance. */
   $match<R>(arms: MatchArms<VMap, R>): R;
+  $match<Arms extends MatchArms<VMap>>(arms: Arms): InferMatchReturn<Arms>;
 };
 
 /**
@@ -106,6 +114,7 @@ export interface BaseEnumInstance<VMap extends Record<string, any>> {
 
   $is<K extends keyof VMap & string>(variant: K): this is VariantOf<this, K & VariantNames<this>>;
   $match<R>(arms: MatchArms<VMap, R>): R;
+  $match<Arms extends MatchArms<VMap>>(arms: Arms): InferMatchReturn<Arms>;
 }
 
 /**

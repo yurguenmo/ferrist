@@ -231,6 +231,56 @@ describe("Enum - Data Variants (Array, Primitive, and Object)", () => {
     expect(detachedClick instanceof WebEvent).toBe(true);
     expect((detachedClick as WebEvent).describe()).toBe("Clicked at (12, 34)");
   });
+
+  it("supports pattern matching with distinct return types per variant", () => {
+    const click = WebEvent.Click([10, 20]);
+    const res1 = click.$match({
+      PageLoad: () => null,
+      Click: ([x, y]) => x + y,
+      KeyPress: (key) => key,
+      Paste: ({ text }) => text.length > 0,
+    });
+    expectTypeOf(res1).toEqualTypeOf<null | number | string | boolean>();
+    expect(res1).toBe(30);
+
+    const paste = WebEvent.Paste({ text: "ferrist", source: "clipboard" });
+    const res2 = paste.$match({
+      PageLoad: () => null,
+      Click: ([x, y]) => x + y,
+      KeyPress: (key) => key,
+      Paste: ({ text }) => text.length > 0,
+    });
+    expectTypeOf(res2).toEqualTypeOf<null | number | string | boolean>();
+    expect(res2).toBe(true);
+
+    // Partial with wildcard returning distinct type
+    const wildcardVal = click.$match({
+      Click: ([x, y]) => x * y,
+      _: () => "other",
+    });
+    expectTypeOf(wildcardVal).toEqualTypeOf<number | string>();
+    expect(wildcardVal).toBe(200);
+
+    // Unit singleton pattern matching with distinct return types
+    const pageLoadVal = WebEvent.PageLoad.$match({
+      PageLoad: () => 100,
+      Click: () => "click",
+      KeyPress: () => false,
+      Paste: () => null,
+    });
+    expectTypeOf(pageLoadVal).toEqualTypeOf<number | string | boolean | null>();
+    expect(pageLoadVal).toBe(100);
+
+    // Explicit single generic argument for backward compatibility
+    const explicitVal = click.$match<string>({
+      PageLoad: () => "load",
+      Click: ([x, y]) => `${x}:${y}`,
+      KeyPress: (k) => k,
+      Paste: (p) => p.text,
+    });
+    expectTypeOf(explicitVal).toEqualTypeOf<string>();
+    expect(explicitVal).toBe("10:20");
+  });
 });
 
 describe("Enum - Variant-Specific Methods (Typestate Pattern)", () => {

@@ -6,7 +6,14 @@
  */
 
 import { panic } from "../panic.js";
-import type { BaseEnumInstance, EnumClass, MatchArms, VariantNames, VariantOf } from "./types.js";
+import type {
+  BaseEnumInstance,
+  EnumClass,
+  InferMatchReturn,
+  MatchArms,
+  VariantNames,
+  VariantOf,
+} from "./types.js";
 import { ENUM_VARIANTS } from "./types.js";
 
 /**
@@ -33,7 +40,9 @@ export abstract class BaseEnum<VMap extends Record<string, any>> implements Base
   /**
    * Exhaustive pattern matching over all declared variants.
    */
-  $match<R>(arms: MatchArms<VMap, R>): R {
+  $match<R>(arms: MatchArms<VMap, R>): R;
+  $match<Arms extends MatchArms<VMap>>(arms: Arms): InferMatchReturn<Arms>;
+  $match(arms: any): any {
     const handler = (arms as any)[this.$variant];
     if (typeof handler === "function") {
       return this.$value === undefined ? (handler as any)() : (handler as any)(this.$value);

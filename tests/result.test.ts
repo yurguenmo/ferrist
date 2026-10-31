@@ -154,6 +154,43 @@ describe("Result ADT", () => {
     expect(err.$match({ _: () => "fallback" })).toBe("fallback");
   });
 
+  it("supports pattern matching with distinct return types per arm", () => {
+    const divide = (a: number, b: number): Result<number, string> =>
+      b === 0 ? Err("Cannot divide by zero") : Ok(a / b);
+
+    const okRes = divide(10, 2);
+    const okVal = okRes.$match({
+      Ok: (value) => value,
+      Err: (message) => `Error: ${message}`,
+    });
+    expectTypeOf(okVal).toEqualTypeOf<number | string>();
+    expect(okVal).toBe(5);
+
+    const errRes = divide(10, 0);
+    const errVal = errRes.$match({
+      Ok: (value) => value,
+      Err: (message) => `Error: ${message}`,
+    });
+    expectTypeOf(errVal).toEqualTypeOf<number | string>();
+    expect(errVal).toBe("Error: Cannot divide by zero");
+
+    // Partial with wildcard returning distinct type
+    const wildcardVal = okRes.$match({
+      Ok: (val) => val * 10,
+      _: () => "default",
+    });
+    expectTypeOf(wildcardVal).toEqualTypeOf<number | string>();
+    expect(wildcardVal).toBe(50);
+
+    // Explicit single type parameter for backward compatibility
+    const explicitVal = okRes.$match<string>({
+      Ok: (v) => `num:${v}`,
+      Err: (e) => `err:${e}`,
+    });
+    expectTypeOf(explicitVal).toEqualTypeOf<string>();
+    expect(explicitVal).toBe("num:5");
+  });
+
   it("fails type check and throws PanicError on non-exhaustive match", () => {
     const okRes: Result<number, string> = Ok(10);
     expect(() =>

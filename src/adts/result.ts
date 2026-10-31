@@ -9,14 +9,14 @@ import { panic } from "../panic.js";
 /**
  * Pattern matching arms for Result<T, E>.
  */
-export interface ResultMatchArms<T, E, R> {
-  Ok: (val: T) => R;
-  Err: (err: E) => R;
+export interface ResultMatchArms<T, E, ROk = any, RErr = ROk> {
+  Ok: (val: T) => ROk;
+  Err: (err: E) => RErr;
 }
 
-export type PartialResultMatchArms<T, E, R> =
-  | ResultMatchArms<T, E, R>
-  | (Partial<ResultMatchArms<T, E, R>> & { _(): R });
+export type PartialResultMatchArms<T, E, ROk = any, RErr = ROk, RWild = never> =
+  | ResultMatchArms<T, E, ROk, RErr>
+  | (Partial<ResultMatchArms<T, E, ROk, RErr>> & { _(): RWild });
 
 /**
  * Successful variant of Result representing a contained value of type `T`.
@@ -34,7 +34,9 @@ export interface IOk<T> {
   $is<V extends "Ok" | "Err">(variant: V): this is V extends "Ok" ? IOk<T> : never;
 
   /** Exhaustive pattern matching over `Ok` and `Err`. */
-  $match<R>(arms: PartialResultMatchArms<T, never, R>): R;
+  $match<ROk = never, RErr = ROk, RWild = never>(
+    arms: PartialResultMatchArms<T, never, ROk, RErr, RWild>,
+  ): ROk | RErr | RWild;
 
   /** Unwraps the success value `T`. Never throws on `Ok`. */
   unwrap(): T;
@@ -77,7 +79,9 @@ export interface IErr<E> {
   $is<V extends "Ok" | "Err">(variant: V): this is V extends "Err" ? IErr<E> : never;
 
   /** Exhaustive pattern matching over `Ok` and `Err`. */
-  $match<R>(arms: PartialResultMatchArms<never, E, R>): R;
+  $match<ROk = never, RErr = ROk, RWild = never>(
+    arms: PartialResultMatchArms<never, E, ROk, RErr, RWild>,
+  ): ROk | RErr | RWild;
 
   /** Panics with the error message because the result is `Err`. */
   unwrap(): never;
@@ -124,12 +128,14 @@ class OkImpl<T> implements IOk<T> {
     return variant === "Ok";
   }
 
-  $match<R>(arms: PartialResultMatchArms<T, never, R>): R {
+  $match<ROk = never, RErr = ROk, RWild = never>(
+    arms: PartialResultMatchArms<T, never, ROk, RErr, RWild>,
+  ): ROk | RErr | RWild {
     if ("Ok" in arms && typeof arms.Ok === "function") {
       return arms.Ok(this.$value);
     }
     if ("_" in arms && typeof arms._ === "function") {
-      return arms._();
+      return (arms as any)._();
     }
     return panic("Non-exhaustive pattern match on Result.Ok");
   }
@@ -187,12 +193,14 @@ class ErrImpl<E> implements IErr<E> {
     return variant === "Err";
   }
 
-  $match<R>(arms: PartialResultMatchArms<never, E, R>): R {
+  $match<ROk = never, RErr = ROk, RWild = never>(
+    arms: PartialResultMatchArms<never, E, ROk, RErr, RWild>,
+  ): ROk | RErr | RWild {
     if ("Err" in arms && typeof arms.Err === "function") {
       return arms.Err(this.$value);
     }
     if ("_" in arms && typeof arms._ === "function") {
-      return arms._();
+      return (arms as any)._();
     }
     return panic(`Called Result.unwrap() on an Err: ${this.$value}`);
   }

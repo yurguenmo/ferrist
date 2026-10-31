@@ -138,6 +138,40 @@ describe("Option ADT", () => {
     expect(none.$match({ _: () => "fallback" })).toBe("fallback");
   });
 
+  it("supports pattern matching with distinct return types per arm", () => {
+    const optSome: Option<number> = Some(42);
+    const someVal = optSome.$match({
+      Some: (v) => v * 2,
+      None: () => "no value",
+    });
+    expectTypeOf(someVal).toEqualTypeOf<number | string>();
+    expect(someVal).toBe(84);
+
+    const optNone: Option<number> = None;
+    const noneVal = optNone.$match({
+      Some: (v) => v * 2,
+      None: () => "no value",
+    });
+    expectTypeOf(noneVal).toEqualTypeOf<number | string>();
+    expect(noneVal).toBe("no value");
+
+    // Partial with wildcard returning distinct type
+    const wildcardVal = optSome.$match({
+      Some: (v) => v > 10,
+      _: () => "unknown",
+    });
+    expectTypeOf(wildcardVal).toEqualTypeOf<boolean | string>();
+    expect(wildcardVal).toBe(true);
+
+    // Explicit single type parameter for backward compatibility
+    const explicitVal = optSome.$match<string>({
+      Some: (v) => `val:${v}`,
+      None: () => "none",
+    });
+    expectTypeOf(explicitVal).toEqualTypeOf<string>();
+    expect(explicitVal).toBe("val:42");
+  });
+
   it("fails type check and throws PanicError on non-exhaustive match", () => {
     const someOpt: Option<number> = Some(10);
     expect(() =>
