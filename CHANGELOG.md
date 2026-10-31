@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.1.0](https://github.com/yurguenmo/ferrist/compare/v1.0.0...v1.1.0) (2026-10-31)
+
+
+### Features
+
+* **enum:** constrain VariantOf to declared variants for IDE autocomplete ([eb5e3e6](https://github.com/yurguenmo/ferrist/commit/eb5e3e63ad126facceded6604c24d676be69d19d))
+* **option:** add unified Option.try for sync and async exception safety ([5c1c31f](https://github.com/yurguenmo/ferrist/commit/5c1c31f72360bd64ba9e82d36a7b2f069acab56a))
+* **result:** add unified Result.try for sync and async exception safety ([e6e8d98](https://github.com/yurguenmo/ferrist/commit/e6e8d98831449349afd6746009bdb3de55a4f082))
+
 ## 1.0.0 (2026-10-31)
 
 
