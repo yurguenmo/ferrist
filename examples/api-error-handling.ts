@@ -5,7 +5,7 @@
  * safely without runtime exceptions or untyped try/catch blocks.
  */
 
-import { Enum, Err, Ok, type Result } from "../src/index.js";
+import { Enum, Err, Ok, Result } from "../src/index.js";
 
 // 1. Model all possible failure modes cleanly with a class-based Enum
 export class ApiError extends Enum<{
@@ -52,14 +52,22 @@ function verifyAdminPermission(user: User): Result<User, ApiError> {
   return Ok(user);
 }
 
-// 4. Safe composition using fluent chaining: .andThen() and .map()
+// 4. Safe exception capturing using Result.try
+export function parseRequestBody(rawJson: string): Result<{ userId: string }, ApiError> {
+  return Result.try(
+    () => JSON.parse(rawJson) as { userId: string },
+    (err) => ApiError.Network(`Invalid JSON payload: ${err}`),
+  );
+}
+
+// 5. Safe composition using fluent chaining: .andThen() and .map()
 export function getAdminDashboard(userId: string): Result<string, ApiError> {
   return findUserById(userId)
     .andThen(verifyAdminPermission)
     .map((admin) => `Welcome to the Admin Portal, ${admin.name}!`);
 }
 
-// 5. Exhaustive pattern matching to handle both outcomes
+// 6. Exhaustive pattern matching to handle both outcomes
 export function renderResponse(userId: string): { status: number; body: string } {
   return getAdminDashboard(userId).$match({
     Ok: (message) => ({
@@ -76,3 +84,15 @@ export function renderResponse(userId: string): { status: number; body: string }
     }),
   });
 }
+
+// --- Runnable Demo ---
+console.log("=== API Error Handling Demo ===");
+console.log("[1] Admin access:", renderResponse("user-1"));
+console.log("[2] Member access:", renderResponse("user-2"));
+console.log("[3] Unknown user:", renderResponse("user-999"));
+
+const validBody = parseRequestBody('{"userId": "user-1"}');
+console.log("[4] Valid JSON body parse:", validBody.unwrap());
+
+const invalidBody = parseRequestBody("invalid json");
+console.log("[5] Invalid JSON body parse:", invalidBody.unwrapErr().$value);

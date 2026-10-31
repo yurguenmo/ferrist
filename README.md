@@ -22,12 +22,26 @@
 
 ## 2. Installation
 
+### Package
+
 ```bash
 npm install ferrist
 # or
 pnpm add ferrist
 # or
 yarn add ferrist
+```
+
+### Agent Skill (for AI Assistants)
+
+If you use AI coding agents (such as Google Antigravity, Claude Code, Cursor, or Gemini CLI), install the official `ferrist` skill to teach your assistant idiomatic patterns, safe `Result.try` exception handling, and typestate transitions:
+
+```bash
+# Install to current project (.agents/skills/ferrist):
+npx skills add yurguenmo/ferrist
+
+# Or install globally across all projects:
+npx skills add yurguenmo/ferrist -g
 ```
 
 ---
@@ -166,16 +180,24 @@ const calculation = divide(20, 2)
 
 console.log(calculation.unwrap()); // 15
 
-// Safely capturing exceptions (Sync & Async via unified Result.try):
+// Safely capturing exceptions (Sync & Async via unified Result.try / tryCatch):
+// 1. Synchronous throw -> Err
 const parsed = Result.try(
   () => JSON.parse('{"status": "ok"}'),
   (err) => new Error(`Invalid JSON: ${err}`)
 );
+// Inferred strictly as Result<any, Error>
 
+// 2. Asynchronous Promise rejection -> Err
 const data = await Result.try(
-  () => fetch("https://api.example.com/data"),
+  async () => fetch("https://api.example.com/data"),
   (err) => new Error(`Network failure: ${err}`)
 );
+// Inferred strictly as Result<Response, Error>
+
+// Standalone export also available:
+import { tryCatch } from "ferrist";
+const safeNumber = tryCatch(() => parseIntOrThrow("42"));
 ```
 
 ---
@@ -185,7 +207,7 @@ const data = await Result.try(
 `Option<T>` safely models optional values without `null` or `undefined`. It is a discriminated union of `Some<T>` and `None`.
 
 ```ts
-import { Option, Some, None } from "ferrist";
+import { Option, Some, None, tryOption, fromNullable } from "ferrist";
 
 function findUser(id: number): Option<{ name: string }> {
   if (id === 1) return Some({ name: "Ferris" });
@@ -202,10 +224,11 @@ if (user.isSome()) {
 // Direct unwrapping & fallbacks:
 const directName = user.unwrap().name;                        // "Ferris" (panics on None)
 const defaultUser = findUser(99).unwrapOr({ name: "Guest" }); // Fallback on None
+const lazyDefault = findUser(99).unwrapOrElse(() => ({ name: "Default" }));
 
-// Converting nullables:
+// Converting nullables (companion or standalone):
 const fromNull = Option.fromNullable(null);         // None
-const fromText = Option.fromNullable("Hello World");// Some("Hello World")
+const fromText = fromNullable("Hello World");       // Some("Hello World")
 
 // Pattern matching:
 const greeting = user.$match({
@@ -220,10 +243,11 @@ const upperName = user
 
 console.log(upperName.unwrapOr("ANONYMOUS")); // "FERRIS"
 
-// Safely capturing exceptions into Option (Sync & Async via Option.try):
+// Safely capturing exceptions into Option (Sync & Async via Option.try / tryOption):
 const parsedOpt = Option.try(() => JSON.parse('{"valid": true}')); // Some({ valid: true })
 const failedOpt = Option.try(() => JSON.parse("invalid json"));     // None
 const asyncOpt  = await Option.try(async () => fetch("/api/user")); // Some(res) or None
+const standalone = tryOption(() => dangerousOperation());           // Some or None
 ```
 
 ---
@@ -235,6 +259,7 @@ The Try operator (`?`) enables early returns on failure. In `ferrist`, this patt
 * Evaluating `const val = yield* expr`:
   * If `expr` is `Ok(val)` or `Some(val)`, unwraps and assigns `val` directly without suspending execution.
   * If `expr` is `Err(err)` or `None`, execution halts immediately, short-circuiting and returning that failure instance to the caller.
+* `fn` works with both synchronous generators (`function*`) and asynchronous generators (`async function*`).
 
 #### Synchronous Pipeline (`function*`):
 
@@ -278,25 +303,85 @@ export const processCheckout = fn(async function* (userId: string, cartId: strin
 
 ---
 
-## 4. Panics
+## 4. Panics & Unrecoverable Errors
 
-When unwrapping a failure value (`Err.unwrap()` or `None.unwrap()`), `ferrist` throws a `PanicError`:
+`ferrist` distinguishes between recoverable errors (`Result`, `Option`) and unrecoverable runtime violations (`panic`).
 
 ```ts
-import { PanicError } from "ferrist";
+import { panic, PanicError, None } from "ferrist";
 
+// 1. Explicit panic
+function getRequiredEnv(key: string): string {
+  const val = process.env[key];
+  if (!val) {
+    panic(`Missing required environment variable: ${key}`);
+  }
+  return val;
+}
+
+// 2. Panics triggered by invalid unwrap:
 try {
   None.unwrap();
 } catch (e) {
   if (e instanceof PanicError) {
-    console.error("Panic error:", e.message);
+    console.error("Caught panic error:", e.message);
   }
 }
 ```
 
 ---
 
-## 5. TypeScript Configuration
+## 5. API Cheatsheet & Quick Reference
+
+### ADT Combinators
+
+| Method | `Result<T, E>` | `Option<T>` | Description |
+| :--- | :---: | :---: | :--- |
+| `unwrap()` | ✅ | ✅ | Unwraps contained value; panics on `Err` / `None` |
+| `unwrapOr(fallback)` | ✅ | ✅ | Unwraps contained value or returns fallback |
+| `unwrapOrElse(fn)` | ✅ | ✅ | Unwraps contained value or computes fallback from function |
+| `unwrapErr()` | ✅ | ❌ | Unwraps contained error; panics on `Ok` |
+| `map(fn)` | ✅ | ✅ | Maps success value `T` to `U` |
+| `mapErr(fn)` | ✅ | ❌ | Maps error value `E` to `F` |
+| `andThen(fn)` | ✅ | ✅ | Monadic flatMap / chaining |
+| `isOk()` / `isSome()` | ✅ (`isOk`) | ✅ (`isSome`) | Type guard for success variant |
+| `isErr()` / `isNone()` | ✅ (`isErr`) | ✅ (`isNone`) | Type guard for failure variant |
+| `$is(variant)` | ✅ | ✅ | Type guard checking specific variant name |
+| `$match(arms)` | ✅ | ✅ | Exhaustive compile-time pattern matching |
+| `[Symbol.iterator]` | ✅ | ✅ | Generator protocol for `yield*` Try operator |
+
+### Utility Functions & Companion Namespaces
+
+| Feature | Standalone Export | Companion Method | Return Type | Description |
+| :--- | :--- | :--- | :--- | :--- |
+| **Exception to Result** | `tryCatch(fn, mapErr?)` | `Result.try(fn, mapErr?)` | `Result` / `Promise<Result>` | Safely catches sync throws and async rejections into `Result` |
+| **Exception to Option** | `tryOption(fn)` | `Option.try(fn)` | `Option` / `Promise<Option>` | Safely catches sync throws and async rejections into `Option` |
+| **Nullable to Option** | `fromNullable(val)` | `Option.fromNullable(val)` | `Option<NonNullable<T>>` | Converts `T \| null \| undefined` to `Option` |
+| **Try Operator Runner** | `fn(generatorFn)` | — | `Result` / `Option` (or Promise) | Runs generator pipelines with `yield*` early return |
+| **Unrecoverable Panic** | `panic(message)` | — | `never` | Throws `PanicError` halting execution immediately |
+
+### Exported Utility Types
+
+* **`VariantOf<T, K>`**: Narrows an `Enum` instance to a specific variant `K` (with autocomplete on variant names).
+* **`VariantNames<T>`**: String union of all declared variant names for an `Enum`.
+* **`TryCatchResult<T, E>`**: Return type of `Result.try` / `tryCatch` (sync `Result<T, E>` vs async `Promise<Result<T, E>>`).
+* **`TryOptionResult<T>`**: Return type of `Option.try` / `tryOption` (sync `Option<T>` vs async `Promise<Option<T>>`).
+
+---
+
+## 6. Examples
+
+The [`examples/`](examples/) directory provides complete, runnable code examples demonstrating practical architectures with `ferrist`:
+
+* **[`examples/api-error-handling.ts`](examples/api-error-handling.ts):** Domain errors modeled as Enums, safe JSON parsing via `Result.try`, and exhaustive response rendering.
+* **[`examples/async-pipeline.ts`](examples/async-pipeline.ts):** Composing multiple modular `fn` pipelines (sync and async) with `yield*`, integrating `Result.try` and `Option.try`.
+* **[`examples/state-machine.ts`](examples/state-machine.ts):** Enforcing valid object lifecycles at compile time using `VariantOf`.
+
+For instructions and details on running each example, see the [Examples Guide](examples/README.md).
+
+---
+
+## 7. TypeScript Configuration
 
 To take full advantage of `ferrist`'s compile-time guarantees, ensure strict mode is enabled in your `tsconfig.json`:
 
