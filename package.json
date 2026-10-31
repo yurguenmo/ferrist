@@ -1,6 +1,6 @@
 {
   "name": "ferrist",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Bringing Rust's algebraic type safety, enums, and structured error handling with the Try operator to TypeScript.",
   "type": "module",
   "main": "./dist/index.cjs",
