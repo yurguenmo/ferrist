@@ -238,23 +238,73 @@ export function Some<T>(val: T): Some<T> {
 export const None: None<never> = Object.freeze(new NoneImpl());
 
 /**
+ * Converts a nullable value (`null` or `undefined`) into an `Option<T>`.
+ * Returns `Some(val)` if `val != null`, or `None` otherwise.
+ *
+ * @example
+ * ```ts
+ * const opt1 = Option.fromNullable("text"); // Some("text")
+ * const opt2 = Option.fromNullable(null);   // None
+ * ```
+ */
+export function fromNullable<T>(val: T | null | undefined): Option<NonNullable<T>> {
+  return val !== null && val !== undefined ? Some(val as NonNullable<T>) : None;
+}
+
+/**
+ * Inferred return type for unified exception handling in `Option.try` / `tryOption`.
+ *
+ * - When `fn` returns a `PromiseLike<U>`, evaluates to `Promise<Option<U>>`.
+ * - For all synchronous functions (including those returning `any` or `never`), evaluates to `Option<T>`.
+ */
+export type TryOptionResult<T> = 0 extends 1 & T
+  ? Option<T>
+  : [T] extends [never]
+    ? Option<T>
+    : [T] extends [PromiseLike<infer U>]
+      ? Promise<Option<U>>
+      : Option<T>;
+
+/**
+ * Safely executes a synchronous or asynchronous function that may throw exceptions or reject,
+ * wrapping the successful value in a `Some<T>` or returning `None` if an exception was thrown or the promise rejected.
+ *
+ * - When `fn` returns a `Promise`, `tryOption` returns a `Promise<Option<T>>`.
+ * - When `fn` returns a synchronous value, `tryOption` returns `Option<T>`.
+ *
+ * @example Synchronous execution
+ * ```ts
+ * const opt = Option.try(() => JSON.parse(str));
+ * // Option<any> (Some on valid JSON, None on SyntaxError)
+ * ```
+ *
+ * @example Asynchronous execution
+ * ```ts
+ * const opt = await Option.try(async () => fetch("/api/data"));
+ * // Option<Response> (Some on success, None on rejection)
+ * ```
+ */
+export function tryOption<T>(fn: () => T): TryOptionResult<T> {
+  try {
+    const value = fn();
+    if (value instanceof Promise || (value != null && typeof (value as any).then === "function")) {
+      return (value as unknown as Promise<any>).then(
+        (resolved) => Some(resolved),
+        () => None,
+      ) as TryOptionResult<T>;
+    }
+    return Some(value) as TryOptionResult<T>;
+  } catch {
+    return None as TryOptionResult<T>;
+  }
+}
+
+/**
  * Companion namespace exposing Option constructors and utilities.
  */
 export const Option = {
   Some,
   None,
-
-  /**
-   * Converts a nullable value (`null` or `undefined`) into an `Option<T>`.
-   * Returns `Some(val)` if `val != null`, or `None` otherwise.
-   *
-   * @example
-   * ```ts
-   * const opt1 = Option.fromNullable("text"); // Some("text")
-   * const opt2 = Option.fromNullable(null);   // None
-   * ```
-   */
-  fromNullable<T>(val: T | null | undefined): Option<NonNullable<T>> {
-    return val !== null && val !== undefined ? Some(val as NonNullable<T>) : None;
-  },
+  fromNullable,
+  try: tryOption,
 };

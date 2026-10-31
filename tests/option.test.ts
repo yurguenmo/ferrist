@@ -1,5 +1,5 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
-import { None, Option, PanicError, Some } from "../src/index.js";
+import { fromNullable, None, Option, PanicError, Some, tryOption } from "../src/index.js";
 
 describe("Option ADT", () => {
   it("constructs Some variant with correct properties and guards", () => {
@@ -189,5 +189,97 @@ describe("Option ADT", () => {
 
     expect(getOption(true).unwrap()).toBe("ok");
     expect(getOption(false).isNone()).toBe(true);
+  });
+
+  it("works identically with standalone fromNullable function", () => {
+    expect(fromNullable("val").unwrap()).toBe("val");
+    expect(fromNullable(null).isNone()).toBe(true);
+    expect(fromNullable(undefined).isNone()).toBe(true);
+  });
+});
+
+describe("Option.try & tryOption (Unified Exception Handling)", () => {
+  describe("synchronous execution", () => {
+    it("captures successful synchronous execution in Some", () => {
+      const opt = Option.try(() => JSON.parse('{"status": "ok"}'));
+      expect(opt.isSome()).toBe(true);
+      expect(opt.unwrap()).toEqual({ status: "ok" });
+      expectTypeOf(opt).toEqualTypeOf<Option<any>>();
+    });
+
+    it("captures thrown exception returning None", () => {
+      const opt = Option.try(() => JSON.parse("invalid json"));
+      expect(opt.isNone()).toBe(true);
+      expectTypeOf(opt).toEqualTypeOf<Option<any>>();
+    });
+
+    it("works identically with standalone tryOption function", () => {
+      const some = tryOption(() => 42);
+      expect(some.unwrap()).toBe(42);
+      expectTypeOf(some).toEqualTypeOf<Option<number>>();
+
+      const none = tryOption(() => {
+        throw new Error("fail");
+      });
+      expect(none.isNone()).toBe(true);
+      expectTypeOf(none).toEqualTypeOf<Option<never>>();
+    });
+  });
+
+  describe("asynchronous execution", () => {
+    it("captures resolved async function in Some", async () => {
+      const opt = await Option.try(async () => "async_value");
+      expect(opt.isSome()).toBe(true);
+      expect(opt.unwrap()).toBe("async_value");
+      expectTypeOf(opt).toEqualTypeOf<Option<string>>();
+    });
+
+    it("captures rejected async function in None", async () => {
+      const opt = await Option.try(async () => {
+        throw new Error("async_rejection");
+      });
+      expect(opt.isNone()).toBe(true);
+      expectTypeOf(opt).toEqualTypeOf<Option<never>>();
+    });
+
+    it("captures non-async function returning a rejected Promise", async () => {
+      const opt = await Option.try(() => Promise.reject("raw_rejection"));
+      expect(opt.isNone()).toBe(true);
+    });
+
+    it("captures truly asynchronous delayed execution (setTimeout resolved)", async () => {
+      const delayedSuccess = () =>
+        new Promise<string>((resolve) => {
+          setTimeout(() => resolve("delayed_ok"), 500);
+        });
+
+      const opt = await Option.try(delayedSuccess);
+      expect(opt.isSome()).toBe(true);
+      expect(opt.unwrap()).toBe("delayed_ok");
+      expectTypeOf(opt).toEqualTypeOf<Option<string>>();
+    });
+
+    it("captures truly asynchronous delayed execution (setTimeout rejected)", async () => {
+      const delayedFailure = () =>
+        new Promise<string>((_, reject) => {
+          setTimeout(() => reject(new Error("delayed_error")), 500);
+        });
+
+      const opt = await Option.try(delayedFailure);
+      expect(opt.isNone()).toBe(true);
+      expectTypeOf(opt).toEqualTypeOf<Option<string>>();
+    });
+
+    it("works identically with standalone tryOption function for async", async () => {
+      const some = await tryOption(async () => 99);
+      expect(some.unwrap()).toBe(99);
+      expectTypeOf(some).toEqualTypeOf<Option<number>>();
+
+      const none = await tryOption(async () => {
+        throw "raw_error";
+      });
+      expect(none.isNone()).toBe(true);
+      expectTypeOf(none).toEqualTypeOf<Option<never>>();
+    });
   });
 });

@@ -1,4 +1,5 @@
 export {
+  fromNullable,
   type INone,
   type ISome,
   None,
@@ -6,6 +7,8 @@ export {
   type OptionMatchArms,
   type PartialOptionMatchArms,
   Some,
+  type TryOptionResult,
+  tryOption,
 } from "./option.js";
 export {
   Err,

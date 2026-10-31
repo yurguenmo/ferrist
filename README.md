@@ -219,6 +219,11 @@ const upperName = user
   .andThen((name) => (name.length > 0 ? Some(name.toUpperCase()) : None));
 
 console.log(upperName.unwrapOr("ANONYMOUS")); // "FERRIS"
+
+// Safely capturing exceptions into Option (Sync & Async via Option.try):
+const parsedOpt = Option.try(() => JSON.parse('{"valid": true}')); // Some({ valid: true })
+const failedOpt = Option.try(() => JSON.parse("invalid json"));     // None
+const asyncOpt  = await Option.try(async () => fetch("/api/user")); // Some(res) or None
 ```
 
 ---
