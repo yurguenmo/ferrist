@@ -1,0 +1,30 @@
+#!/bin/sh
+# Native Conventional Commits Linter
+node -e '
+const fs = require("fs");
+const msgFile = process.argv[1];
+if (!msgFile || !fs.existsSync(msgFile)) process.exit(0);
+
+const firstLine = fs.readFileSync(msgFile, "utf8").trim().split("\n")[0];
+
+// Allow automated merge commits or initial release tags
+if (/^(Merge |Revert |v\d+\.\d+\.\d+)/.test(firstLine)) {
+  process.exit(0);
+}
+
+const pattern = /^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-zA-Z0-9._-]+\))?(!)?:\s.+$/;
+
+if (!pattern.test(firstLine)) {
+  console.error("\n❌ Invalid commit message format!\n");
+  console.error(`  Received: "${firstLine}"\n`);
+  console.error("Commit messages must follow the Conventional Commits specification:");
+  console.error("  <type>(<scope>): <subject>\n");
+  console.error("Allowed types:");
+  console.error("  feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert\n");
+  console.error("Examples:");
+  console.error("  feat(core): add Option.filter method");
+  console.error("  fix(adts): handle undefined in unwrapOr");
+  console.error("  docs: add examples to README\n");
+  process.exit(1);
+}
+' "$1"
