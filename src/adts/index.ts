@@ -15,4 +15,6 @@ export {
   type PartialResultMatchArms,
   Result,
   type ResultMatchArms,
+  type TryCatchResult,
+  tryCatch,
 } from "./result.js";

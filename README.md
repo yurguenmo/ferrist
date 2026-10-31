@@ -165,6 +165,17 @@ const calculation = divide(20, 2)
   .andThen((n) => divide(n, 2));
 
 console.log(calculation.unwrap()); // 15
+
+// Safely capturing exceptions (Sync & Async via unified Result.try):
+const parsed = Result.try(
+  () => JSON.parse('{"status": "ok"}'),
+  (err) => new Error(`Invalid JSON: ${err}`)
+);
+
+const data = await Result.try(
+  () => fetch("https://api.example.com/data"),
+  (err) => new Error(`Network failure: ${err}`)
+);
 ```
 
 ---

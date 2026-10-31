@@ -273,9 +273,78 @@ export function Err<E>(err: E): Err<E> {
 }
 
 /**
- * Companion namespace exposing Result constructors.
+ * Inferred return type for unified exception handling in `Result.try` / `tryCatch`.
+ *
+ * - When `fn` returns a `PromiseLike<U>`, evaluates to `Promise<Result<U, E>>`.
+ * - For all synchronous functions (including those returning `any` or `never`), evaluates to `Result<T, E>`.
+ */
+export type TryCatchResult<T, E> = 0 extends 1 & T
+  ? Result<T, E>
+  : [T] extends [never]
+    ? Result<T, E>
+    : [T] extends [PromiseLike<infer U>]
+      ? Promise<Result<U, E>>
+      : Result<T, E>;
+
+/**
+ * Safely executes a synchronous or asynchronous function that may throw exceptions or reject,
+ * wrapping the result in an `Ok<T>` or any caught exception/rejection in an `Err<E>`.
+ *
+ * - When `fn` returns a `Promise`, `tryCatch` returns a `Promise<Result<T, E>>`.
+ * - When `fn` returns a synchronous value, `tryCatch` returns `Result<T, E>`.
+ * - If `mapErr` is provided, any caught exception or rejection is mapped through it.
+ *
+ * @example Synchronous execution
+ * ```ts
+ * const res = Result.try(() => JSON.parse(str));
+ * // Result<any, unknown>
+ *
+ * const mapped = Result.try(
+ *   () => JSON.parse(str),
+ *   (err) => new Error(`Parse failed: ${err}`)
+ * );
+ * // Result<any, Error>
+ * ```
+ *
+ * @example Asynchronous execution
+ * ```ts
+ * const res = await Result.try(async () => fetch("/api/data"));
+ * // Result<Response, unknown>
+ * ```
+ */
+export function tryCatch<T, E = unknown>(
+  fn: () => T,
+  mapErr?: (err: unknown) => E,
+): TryCatchResult<T, E> {
+  try {
+    const value = fn();
+    if (value instanceof Promise || (value != null && typeof (value as any).then === "function")) {
+      return (value as unknown as Promise<any>).then(
+        (resolved) => Ok(resolved),
+        (rejected) => {
+          try {
+            return Err(mapErr ? mapErr(rejected) : (rejected as E));
+          } catch (mapErrError) {
+            return Err(mapErrError as E);
+          }
+        },
+      ) as TryCatchResult<T, E>;
+    }
+    return Ok(value) as TryCatchResult<T, E>;
+  } catch (err) {
+    try {
+      return Err(mapErr ? mapErr(err) : (err as E)) as TryCatchResult<T, E>;
+    } catch (mapErrError) {
+      return Err(mapErrError as E) as TryCatchResult<T, E>;
+    }
+  }
+}
+
+/**
+ * Companion namespace exposing Result constructors and utilities.
  */
 export const Result = {
   Ok,
   Err,
+  try: tryCatch,
 };

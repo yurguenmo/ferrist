@@ -1,5 +1,5 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
-import { Err, Ok, PanicError, type Result } from "../src/index.js";
+import { Err, Ok, PanicError, Result, tryCatch } from "../src/index.js";
 
 describe("Result ADT", () => {
   it("constructs Ok variant with correct properties and guards", () => {
@@ -212,5 +212,153 @@ describe("Result ADT", () => {
 
     const res2 = parseNumber("abc");
     expect(res2.unwrapErr()).toBe("Invalid number: abc");
+  });
+});
+
+describe("Result.try & tryCatch (Unified Exception Handling)", () => {
+  describe("synchronous execution", () => {
+    it("captures successful synchronous execution in Ok", () => {
+      const res = Result.try(() => JSON.parse('{"status": "ok"}'));
+      expect(res.isOk()).toBe(true);
+      expect(res.unwrap()).toEqual({ status: "ok" });
+      expectTypeOf(res).toEqualTypeOf<Result<any, unknown>>();
+    });
+
+    it("captures thrown exception in Err with default unknown error type", () => {
+      const res = Result.try(() => JSON.parse("invalid json"));
+      expect(res.isErr()).toBe(true);
+      expect(res.unwrapErr()).toBeInstanceOf(SyntaxError);
+      expectTypeOf(res).toEqualTypeOf<Result<any, unknown>>();
+    });
+
+    it("maps thrown exception using custom mapErr function", () => {
+      const res = Result.try(
+        () => JSON.parse("invalid json"),
+        (err) => (err instanceof Error ? err.message : String(err)),
+      );
+
+      expect(res.isErr()).toBe(true);
+      expectTypeOf(res).toEqualTypeOf<Result<any, string>>();
+      expect(res.unwrapErr()).toContain("JSON");
+    });
+
+    it("safeguards against exceptions thrown inside mapErr", () => {
+      const res = Result.try(
+        () => {
+          throw new Error("original error");
+        },
+        () => {
+          throw new Error("error in mapErr");
+        },
+      );
+
+      expect(res.isErr()).toBe(true);
+      expect((res.unwrapErr() as Error).message).toBe("error in mapErr");
+    });
+
+    it("works identically with standalone tryCatch function", () => {
+      const ok = tryCatch(() => 42);
+      expect(ok.unwrap()).toBe(42);
+      expectTypeOf(ok).toEqualTypeOf<Result<number, unknown>>();
+
+      const err = tryCatch(
+        () => {
+          throw new Error("fail");
+        },
+        (e) => (e as Error).message,
+      );
+      expect(err.unwrapErr()).toBe("fail");
+      expectTypeOf(err).toEqualTypeOf<Result<never, string>>();
+    });
+  });
+
+  describe("asynchronous execution", () => {
+    it("captures resolved promise in Ok", async () => {
+      const res = await Result.try(async () => "async_value");
+      expect(res.isOk()).toBe(true);
+      expect(res.unwrap()).toBe("async_value");
+      expectTypeOf(res).toEqualTypeOf<Result<string, unknown>>();
+    });
+
+    it("captures rejected async function in Err", async () => {
+      const res = await Result.try(async () => {
+        throw new Error("async_rejection");
+      });
+      expect(res.isErr()).toBe(true);
+      expect(res.unwrapErr()).toBeInstanceOf(Error);
+      expectTypeOf(res).toEqualTypeOf<Result<never, unknown>>();
+    });
+
+    it("captures non-async function returning a rejected Promise", async () => {
+      const res = await Result.try(() => Promise.reject("raw_rejection"));
+      expect(res.isErr()).toBe(true);
+      expect(res.unwrapErr()).toBe("raw_rejection");
+    });
+
+    it("maps async rejection using mapErr function", async () => {
+      const res = await Result.try(
+        async () => {
+          throw new Error("custom_async");
+        },
+        (err) => `Mapped: ${(err as Error).message}`,
+      );
+      expect(res.isErr()).toBe(true);
+      expectTypeOf(res).toEqualTypeOf<Result<never, string>>();
+      expect(res.unwrapErr()).toBe("Mapped: custom_async");
+    });
+
+    it("safeguards against exceptions thrown inside async mapErr", async () => {
+      const res = await Result.try(
+        async () => {
+          throw new Error("async failure");
+        },
+        () => {
+          throw new Error("async mapErr failed");
+        },
+      );
+
+      expect(res.isErr()).toBe(true);
+      expect((res.unwrapErr() as Error).message).toBe("async mapErr failed");
+    });
+
+    it("captures truly asynchronous delayed execution (setTimeout resolved)", async () => {
+      const delayedSuccess = () =>
+        new Promise<string>((resolve) => {
+          setTimeout(() => resolve("delayed_ok"), 500);
+        });
+
+      const res = await Result.try(delayedSuccess);
+      expect(res.isOk()).toBe(true);
+      expect(res.unwrap()).toBe("delayed_ok");
+      expectTypeOf(res).toEqualTypeOf<Result<string, unknown>>();
+    });
+
+    it("captures truly asynchronous delayed execution (setTimeout rejected)", async () => {
+      const delayedFailure = () =>
+        new Promise<string>((_, reject) => {
+          setTimeout(() => reject(new Error("delayed_error")), 500);
+        });
+
+      const res = await Result.try(delayedFailure);
+      expect(res.isErr()).toBe(true);
+      expect(res.unwrapErr()).toBeInstanceOf(Error);
+      expect((res.unwrapErr() as Error).message).toBe("delayed_error");
+      expectTypeOf(res).toEqualTypeOf<Result<string, unknown>>();
+    });
+
+    it("works identically with standalone tryCatch function for async", async () => {
+      const ok = await tryCatch(async () => 99);
+      expect(ok.unwrap()).toBe(99);
+      expectTypeOf(ok).toEqualTypeOf<Result<number, unknown>>();
+
+      const err = await tryCatch(
+        async () => {
+          throw "raw_error";
+        },
+        (e) => `Caught: ${e}`,
+      );
+      expect(err.unwrapErr()).toBe("Caught: raw_error");
+      expectTypeOf(err).toEqualTypeOf<Result<never, string>>();
+    });
   });
 });
