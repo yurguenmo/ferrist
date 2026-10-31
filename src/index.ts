@@ -9,7 +9,7 @@
 
 // Dedicated ADTs (Result, Option) & Combinators
 export * from "./adts/index.js";
-// Enum Engine & Infer
+// Class-Based Enum Engine
 export * from "./enum/index.js";
 // Try Runner (`fn`)
 export * from "./fn.js";

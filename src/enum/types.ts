@@ -1,49 +1,28 @@
 /**
  * ferrist - Enum Type System
  *
- * Provides pure type-level definitions for Algebraic Data Types (ADTs).
+ * Provides pure type-level definitions for Class-Based Algebraic Data Types (ADTs).
  */
 
 /**
- * Symbol branding for inferring the instance type of an Enum constructor.
+ * Symbol branding for preserving variant definitions on the Enum class instance.
  */
-export const ENUM_INSTANCE = Symbol.for("ferrist.enum.instance");
+export const ENUM_VARIANTS: unique symbol = Symbol("ferrist.enum.variants");
 
 /**
  * Discriminator tag and payload branch of an Enum instance for variant `K`.
  */
-export type EnumBranch<
-  VMap extends Record<string, any>,
-  K extends keyof VMap & string,
-  TInstance = {},
-  TSelf = any,
-> = {
+export type VariantOf<T, K extends string> = Omit<T, "$variant" | "$value"> & {
+  readonly [ENUM_VARIANTS]?: T extends { readonly [ENUM_VARIANTS]?: infer V } ? V : never;
   /** The active variant discriminator name. */
   readonly $variant: K;
   /** The variant's inner payload value. */
-  readonly $value: VMap[K];
-  /** Reference to the enclosing Enum constructor. */
-  readonly $Self: TSelf;
-
-  /**
-   * Type-guard checking if this instance is of the specified variant.
-   */
-  $is<VariantName extends keyof VMap & string>(
-    variant: VariantName,
-  ): this is EnumBranch<VMap, VariantName, TInstance, TSelf>;
-
-  /**
-   * Exhaustive pattern matching over all declared variants.
-   */
-  $match<R>(arms: MatchArms<VMap, R>): R;
-} & TInstance;
-
-/**
- * Union of all variant branches representing the concrete Enum instance type.
- */
-export type EnumInstance<VMap extends Record<string, any>, TInstance = {}, TSelf = any> = {
-  [K in keyof VMap & string]: EnumBranch<VMap, K, TInstance, TSelf>;
-}[keyof VMap & string];
+  readonly $value: T extends { readonly [ENUM_VARIANTS]?: infer V }
+    ? K extends keyof V
+      ? V[K]
+      : never
+    : any;
+};
 
 /**
  * Exhaustive pattern matching arms definition.
@@ -53,78 +32,72 @@ export type EnumInstance<VMap extends Record<string, any>, TInstance = {}, TSelf
  */
 export type MatchArms<VMap extends Record<string, any>, R> =
   | {
-      [K in keyof VMap]: VMap[K] extends void | undefined ? () => R : (val: VMap[K]) => R;
+      [K in keyof VMap]: [VMap[K]] extends [never]
+        ? () => R
+        : VMap[K] extends void | undefined
+          ? () => R
+          : (val: VMap[K]) => R;
     }
   | (Partial<{
-      [K in keyof VMap]: VMap[K] extends void | undefined ? () => R : (val: VMap[K]) => R;
+      [K in keyof VMap]: [VMap[K]] extends [never]
+        ? () => R
+        : VMap[K] extends void | undefined
+          ? () => R
+          : (val: VMap[K]) => R;
     }> & {
       _(): R;
     });
 
 /**
- * A Unit variant constructor that is both an instance value and a callable function.
+ * Argument tuple for variant constructors based on payload type.
  */
-export type UnitVariant<
-  VMap extends Record<string, any>,
-  K extends keyof VMap & string,
-  TInstance = {},
-  TSelf = any,
-> = EnumBranch<VMap, K, TInstance, TSelf> & (() => EnumBranch<VMap, K, TInstance, TSelf>);
+export type VariantArgs<T> = [T] extends [never]
+  ? []
+  : T extends void | undefined
+    ? []
+    : [value: T];
 
 /**
- * Dictionary of variant constructors exposed on the Enum object.
+ * Factory function for constructing a specific variant `K`.
  */
-export type VariantConstructors<VMap extends Record<string, any>, TInstance = {}, TSelf = any> = {
-  readonly [K in keyof VMap & string]: VMap[K] extends void | undefined
-    ? UnitVariant<VMap, K, TInstance, TSelf>
-    : (val: VMap[K]) => EnumBranch<VMap, K, TInstance, TSelf>;
+export type VariantFactory<VMap extends Record<string, any>, K extends keyof VMap & string> = {
+  <TThis extends abstract new (...args: any[]) => any>(
+    this: TThis,
+    ...args: VariantArgs<VMap[K]>
+  ): VariantOf<InstanceType<TThis>, K>;
+  (this: void, ...args: VariantArgs<VMap[K]>): VariantOf<BaseEnumInstance<VMap>, K>;
+  /** The variant name when accessed as a unit singleton. */
+  readonly $variant: K;
+  /** The variant payload when accessed as a unit singleton. */
+  readonly $value: VMap[K];
+  /** Type-guard checking if this unit instance is of the specified variant. */
+  $is<VariantName extends keyof VMap & string>(variant: VariantName): boolean;
+  /** Pattern matching on the unit instance. */
+  $match<R>(arms: MatchArms<VMap, R>): R;
 };
 
 /**
- * Builder interface for attaching static and instance methods.
+ * Static variant constructors exposed on the Enum class.
  */
-export interface EnumBuilder<VMap extends Record<string, any>, TStatic = {}, TInstance = {}> {
-  /**
-   * Attaches static associated functions or factory helpers to the Enum object.
-   * Inside method bodies, `this` references the Enum constructor.
-   */
-  static<NewStatic extends Record<string, any>>(
-    methods: NewStatic & ThisType<VariantConstructors<VMap, TInstance, any> & TStatic & NewStatic>,
-  ): EnumType<VMap, TStatic & NewStatic, TInstance>;
+export type StaticVariants<VMap extends Record<string, any>> = {
+  readonly [K in keyof VMap & string]: VariantFactory<VMap, K>;
+};
 
-  /**
-   * Attaches instance methods to all variant instances generated by this Enum.
-   * Inside method bodies, `this` references the current Enum instance.
-   */
-  instance<NewInstance extends Record<string, any>>(
-    methods: NewInstance & ThisType<EnumInstance<VMap, TInstance & NewInstance, any>>,
-  ): EnumType<VMap, TStatic, TInstance & NewInstance>;
+/**
+ * Public interface implemented by all Enum instances.
+ */
+export interface BaseEnumInstance<VMap extends Record<string, any>> {
+  readonly [ENUM_VARIANTS]?: VMap;
+  readonly $variant: keyof VMap & string;
+  readonly $value: VMap[keyof VMap & string];
+
+  $is<K extends keyof VMap & string>(variant: K): this is VariantOf<this, K>;
+  $match<R>(arms: MatchArms<VMap, R>): R;
 }
 
 /**
- * The complete Enum constructor type returned by `Enum<{ ... }>()`.
+ * Base class constructor returned by `Enum<{ ... }>()`.
  */
-export type EnumType<
-  VMap extends Record<string, any>,
-  TStatic = {},
-  TInstance = {},
-> = VariantConstructors<VMap, TInstance, any> &
-  TStatic &
-  EnumBuilder<VMap, TStatic, TInstance> & {
-    readonly [ENUM_INSTANCE]: EnumInstance<VMap, TInstance, any>;
-  };
-
-/**
- * Infers the union instance type of an Enum definition.
- *
- * @example
- * ```ts
- * export const WebEvent = Enum<{
- *   PageLoad: never;
- *   Click: [number, number];
- * }>();
- *
- * export type WebEvent = Infer<typeof WebEvent>;
- * ```
- */
-export type Infer<T> = T extends { readonly [ENUM_INSTANCE]: infer I } ? I : never;
+export type EnumClass<VMap extends Record<string, any>> = {
+  new (): BaseEnumInstance<VMap>;
+} & StaticVariants<VMap>;

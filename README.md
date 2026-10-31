@@ -36,12 +36,16 @@ yarn add ferrist
 
 ### 3.1. Enums (Algebraic Data Types)
 
-Enums are declared by specifying a type dictionary in the generic parameter `Enum<{ ... }>()`:
+Enums are declared as standard TypeScript classes extending `Enum<{ ... }>()`. This delivers:
+- **Type & Constructor:** The class name serves as both the type and its constructor.
+- **Native Methods & Statics:** Define instance methods, getters, and static helpers directly in the class body.
+- **Variant-Specific Methods (Typestate Pattern):** Constrain methods to specific variants using `this: VariantOf<Class, "Variant">`.
+- **Exhaustive Pattern Matching:** Built-in `.$match` with compile-time exhaustiveness checking.
 
 ```ts
-import { Enum, Infer } from "ferrist";
+import { Enum, type VariantOf } from "ferrist";
 
-export const WebEvent = Enum<{
+export class WebEvent extends Enum<{
   // 1. Unit variant (no payload): use `never`
   PageLoad: never;
 
@@ -53,43 +57,48 @@ export const WebEvent = Enum<{
 
   // 4. Struct / Object payload
   Paste: { text: string; source: string };
-}>()
-  // Optional: attach instance methods
-  .instance({
-    describe(): string {
-      return this.$match({
-        PageLoad: () => "Page loaded",
-        Click: ([x, y]) => `Clicked at (${x}, ${y})`,
-        KeyPress: (key) => `Key pressed: ${key}`,
-        Paste: ({ text, source }) => `Pasted "${text}" from ${source}`,
-      });
-    },
-  })
-  // Optional: attach static helper methods
-  .static({
-    originClick() {
-      return this.Click([0, 0]);
-    },
-  });
+}>() {
+  // Instance methods (available across all variants)
+  describe(): string {
+    return this.$match({
+      PageLoad: () => "Page loaded",
+      Click: ([x, y]) => `Clicked at (${x}, ${y})`,
+      KeyPress: (key) => `Key pressed: ${key}`,
+      Paste: ({ text, source }) => `Pasted "${text}" from ${source}`,
+    });
+  }
 
-export type WebEvent = Infer<typeof WebEvent>;
+  // Variant-specific method: ONLY callable on Click variants
+  coordinates(this: VariantOf<WebEvent, "Click">): [number, number] {
+    return this.$value;
+  }
+
+  // Static helper methods
+  static originClick(): WebEvent {
+    return this.Click([0, 0]);
+  }
+}
 ```
 
 #### Instantiation & Pattern Matching
 
-Every variant with data accepts **exactly 1 payload argument**, and its `.$match` handler receives that exact payload, allowing native destructuring:
+Every variant accepts **at most 1 payload argument** (or zero for unit variants), and its `.$match` handler receives that exact payload:
 
 ```ts
-// 1. Unit variants: accessible as properties or zero-argument calls
-const e1 = WebEvent.PageLoad;
-const e1Callable = WebEvent.PageLoad();
+// 1. Unit variants: callable or accessed as singletons
+const e1 = WebEvent.PageLoad();
+const e1Singleton = WebEvent.PageLoad;
 
 // 2. Data variants: pass array, primitive, or object directly
 const e2 = WebEvent.Click([100, 250]);
 const e3 = WebEvent.KeyPress("Enter");
 const e4 = WebEvent.Paste({ text: "Hello", source: "clipboard" });
 
-// 3. Type-safe, exhaustive pattern matching:
+// 3. Variant-specific method invocation:
+e2.coordinates(); // Returns [100, 250]
+// e3.coordinates(); // ❌ Compile error: coordinates() only exists on Click!
+
+// 4. Type-safe, exhaustive pattern matching:
 const message = e2.$match({
   PageLoad: () => "Initial load",
   Click: ([x, y]) => `Mouse click at (${x}, ${y})`,
@@ -97,7 +106,7 @@ const message = e2.$match({
   Paste: ({ text }) => `Pasted content: ${text}`,
 });
 
-// 4. Wildcard matching with `_()`:
+// 5. Wildcard matching with `_()`:
 const isMouseAction = e2.$match({
   Click: () => true,
   _() {
@@ -105,7 +114,7 @@ const isMouseAction = e2.$match({
   },
 });
 
-// 5. Variant inspection & narrowing:
+// 6. Variant inspection & narrowing:
 console.log(e2.$variant); // "Click"
 console.log(e2.$value);   // [100, 250]
 

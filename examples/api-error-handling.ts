@@ -1,19 +1,19 @@
 /**
  * Example: Structured API Error Handling with Enum and Result
  *
- * Demonstrates how to model domain errors as an Enum and chain operations
+ * Demonstrates how to model domain errors as a class-based Enum and chain operations
  * safely without runtime exceptions or untyped try/catch blocks.
  */
 
-import { Enum, Err, type Infer, Ok, type Result } from "../src/index.js";
+import { Enum, Err, Ok, type Result } from "../src/index.js";
 
-// 1. Model all possible failure modes cleanly with an Enum
-export const ApiError = Enum<{
+// 1. Model all possible failure modes cleanly with a class-based Enum
+export class ApiError extends Enum<{
   NotFound: { resource: string; id: string };
   Unauthorized: string;
   RateLimited: { retryAfterSeconds: number };
   Network: string;
-}>().instance({
+}>() {
   toHttpStatus(): number {
     return this.$match({
       NotFound: () => 404,
@@ -21,10 +21,8 @@ export const ApiError = Enum<{
       RateLimited: () => 429,
       Network: () => 503,
     });
-  },
-});
-
-export type ApiError = Infer<typeof ApiError>;
+  }
+}
 
 // 2. Mock database records
 interface User {

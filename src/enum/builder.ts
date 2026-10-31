@@ -1,140 +1,134 @@
 /**
- * ferrist - Enum Builder Engine
+ * ferrist - Enum Engine
  *
- * Implements pure type-level Enums with proxy-based constructor synthesis,
- * pattern matching, and optional instance/static behavior attachment.
+ * Implements class-based Algebraic Data Types (ADTs) with proxy-synthesized
+ * variant constructors, pattern matching, and native prototype inheritance.
  */
 
 import { panic } from "../panic.js";
-import { ENUM_INSTANCE, type EnumType } from "./types.js";
+import type { BaseEnumInstance, EnumClass, MatchArms, VariantOf } from "./types.js";
+import { ENUM_VARIANTS } from "./types.js";
 
 /**
- * Creates an immutable enum variant instance.
+ * Base abstract class for all Enum instances.
  */
-function createInstance(
-  variant: string,
-  value: any,
-  instanceMethods: Record<string, any>,
-  self: any,
-) {
-  const instance = Object.create(instanceMethods);
-  instance.$variant = variant;
-  instance.$value = value;
-  instance.$Self = self;
+export abstract class BaseEnum<VMap extends Record<string, any>> implements BaseEnumInstance<VMap> {
+  declare readonly [ENUM_VARIANTS]?: VMap;
+  readonly $variant!: keyof VMap & string;
+  readonly $value!: VMap[keyof VMap & string];
 
-  instance.$is = function (v: string): boolean {
-    return this.$variant === v;
-  };
+  constructor() {
+    panic(
+      "Enums cannot be directly instantiated with 'new'. Use a variant constructor instead (e.g. MyEnum.Variant(...)).",
+    );
+  }
 
-  instance.$match = function (arms: any) {
-    const handler = arms[this.$variant];
+  /**
+   * Type-guard checking if this instance is of the specified variant.
+   */
+  $is<K extends keyof VMap & string>(variant: K): this is VariantOf<this, K> {
+    return (this.$variant as any) === variant;
+  }
+
+  /**
+   * Exhaustive pattern matching over all declared variants.
+   */
+  $match<R>(arms: MatchArms<VMap, R>): R {
+    const handler = (arms as any)[this.$variant];
     if (typeof handler === "function") {
-      return this.$value === undefined ? handler() : handler(this.$value);
+      return this.$value === undefined ? (handler as any)() : (handler as any)(this.$value);
     }
-    if (typeof arms._ === "function") {
-      return arms._();
+    const wildcard = (arms as any)._;
+    if (typeof wildcard === "function") {
+      return wildcard();
     }
-    return panic(`Non-exhaustive pattern match on variant '${this.$variant}'`);
-  };
-
-  return Object.freeze(instance);
+    return panic(`Non-exhaustive pattern match on variant '${String(this.$variant)}'`);
+  }
 }
 
 /**
- * Declares an Algebraic Data Type (Enum).
+ * WeakMap cache mapping each derived class to its synthesized variant constructors.
+ */
+const variantCache = new WeakMap<object, Map<string, any>>();
+
+/**
+ * Declares a Class-Based Algebraic Data Type (Enum).
  *
- * Variants are declared as a type dictionary mapping variant names to their payload types:
- * - `never`: Unit variant with no payload (accessible as property or zero-arg call).
- * - Primitive / Object / Tuple: Data variant taking a single payload argument.
- *
- * Methods and static helpers can be optionally attached via `.instance({...})` and `.static({...})`.
+ * Subclass the returned base class to define your Enum:
  *
  * @example
  * ```ts
- * export const WebEvent = Enum<{
+ * export class WebEvent extends Enum<{
  *   PageLoad: never;
  *   Click: [number, number];
  *   KeyPress: string;
  *   Paste: { text: string; source: string };
- * }>()
- *   .instance({
- *     describe(): string {
- *       return this.$match({
- *         PageLoad: () => "Page loaded",
- *         Click: ([x, y]) => `Clicked at (${x}, ${y})`,
- *         KeyPress: (k) => `Key: ${k}`,
- *         Paste: ({ text }) => `Pasted: ${text}`,
- *       });
- *     },
- *   });
- *
- * export type WebEvent = Infer<typeof WebEvent>;
+ * }>() {
+ *   describe(): string {
+ *     return this.$match({
+ *       PageLoad: () => "Page loaded",
+ *       Click: ([x, y]) => `Clicked at (${x}, ${y})`,
+ *       KeyPress: (key) => `Key: ${key}`,
+ *       Paste: ({ text }) => `Pasted: ${text}`,
+ *     });
+ *   }
+ * }
  * ```
  */
-export function Enum<VMap extends Record<string, any>>(): EnumType<VMap> {
-  const staticMethods: Record<string, any> = {};
-  const instanceMethods: Record<string, any> = {};
+export function Enum<VMap extends Record<string, any>>(): EnumClass<VMap> {
+  class BaseEnumImpl extends BaseEnum<VMap> {}
 
-  const builder: any = {
-    static(methods: Record<string, any>) {
-      Object.assign(staticMethods, methods);
-      return proxy;
-    },
-    instance(methods: Record<string, any>) {
-      Object.assign(instanceMethods, methods);
-      return proxy;
-    },
-  };
-
-  const variantCache = new Map<string, any>();
-
-  function getVariant(name: string) {
-    let variant = variantCache.get(name);
-    if (!variant) {
-      // The variant is callable: e.g. WebEvent.Click([10, 20])
-      const fn: any = (val?: any) => createInstance(name, val, instanceMethods, proxy);
-
-      // Also directly usable as an instance for Unit variants: e.g. WebEvent.PageLoad
-      fn.$variant = name;
-      fn.$value = undefined;
-      fn.$Self = proxy;
-      fn.$is = (v: string): boolean => v === name;
-      fn.$match = (arms: any) => {
-        if (typeof arms[name] === "function") {
-          return arms[name]();
-        }
-        if (typeof arms._ === "function") {
-          return arms._();
-        }
-        return panic(`Non-exhaustive pattern match on variant '${name}'`);
-      };
-
-      // Inherit instance methods on the unit instance
-      Object.setPrototypeOf(fn, instanceMethods);
-      variant = Object.freeze(fn);
-      variantCache.set(name, variant);
-    }
-    return variant;
-  }
-
-  const proxy: any = new Proxy(builder, {
+  return new Proxy(BaseEnumImpl, {
     get(target, prop, receiver) {
-      if (typeof prop === "symbol") {
-        if (prop === ENUM_INSTANCE) {
-          return undefined;
-        }
+      if (prop in target) {
         return Reflect.get(target, prop, receiver);
       }
-      if (prop === "static" || prop === "instance") {
-        return target[prop];
-      }
-      if (prop in staticMethods) {
-        return staticMethods[prop];
-      }
-      // Any other property access synthesizes the variant constructor
-      return getVariant(prop);
-    },
-  });
 
-  return proxy;
+      if (typeof prop === "string") {
+        const cacheKey = receiver ?? target;
+
+        let classCache = variantCache.get(cacheKey);
+        if (!classCache) {
+          classCache = new Map<string, any>();
+          variantCache.set(cacheKey, classCache);
+        }
+
+        let variant = classCache.get(prop);
+        if (!variant) {
+          const fn: any = function (this: any, val?: any) {
+            const cls = this && this.prototype ? this : receiver;
+            const instance = Object.create(cls.prototype);
+            instance.$variant = prop;
+            instance.$value = val;
+            return Object.freeze(instance);
+          };
+
+          fn.$variant = prop;
+          fn.$value = undefined;
+          fn.$is = (v: string): boolean => v === prop;
+          fn.$match = (arms: any) => {
+            const handler = arms[prop];
+            if (typeof handler === "function") {
+              return handler();
+            }
+            if (typeof arms._ === "function") {
+              return arms._();
+            }
+            return panic(`Non-exhaustive pattern match on variant '${prop}'`);
+          };
+
+          if (receiver?.prototype) {
+            Object.setPrototypeOf(fn, receiver.prototype);
+          }
+
+          variant = Object.freeze(fn);
+          classCache.set(prop, variant);
+        }
+
+        return variant;
+      }
+
+      return Reflect.get(target, prop, receiver);
+    },
+  }) as unknown as EnumClass<VMap>;
 }
