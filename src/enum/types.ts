@@ -10,9 +10,19 @@
 export const ENUM_VARIANTS: unique symbol = Symbol("ferrist.enum.variants");
 
 /**
+ * Extracts the declared variant discriminator names of an Enum class.
+ */
+export type VariantNames<T> = T extends { readonly [ENUM_VARIANTS]?: infer V }
+  ? keyof V & string
+  : string;
+
+/**
  * Discriminator tag and payload branch of an Enum instance for variant `K`.
  */
-export type VariantOf<T, K extends string> = Omit<T, "$variant" | "$value"> & {
+export type VariantOf<T, K extends VariantNames<T> = VariantNames<T>> = Omit<
+  T,
+  "$variant" | "$value"
+> & {
   readonly [ENUM_VARIANTS]?: T extends { readonly [ENUM_VARIANTS]?: infer V } ? V : never;
   /** The active variant discriminator name. */
   readonly $variant: K;
@@ -64,8 +74,11 @@ export type VariantFactory<VMap extends Record<string, any>, K extends keyof VMa
   <TThis extends abstract new (...args: any[]) => any>(
     this: TThis,
     ...args: VariantArgs<VMap[K]>
-  ): VariantOf<InstanceType<TThis>, K>;
-  (this: void, ...args: VariantArgs<VMap[K]>): VariantOf<BaseEnumInstance<VMap>, K>;
+  ): VariantOf<InstanceType<TThis>, K & VariantNames<InstanceType<TThis>>>;
+  (
+    this: void,
+    ...args: VariantArgs<VMap[K]>
+  ): VariantOf<BaseEnumInstance<VMap>, K & VariantNames<BaseEnumInstance<VMap>>>;
   /** The variant name when accessed as a unit singleton. */
   readonly $variant: K;
   /** The variant payload when accessed as a unit singleton. */
@@ -91,7 +104,7 @@ export interface BaseEnumInstance<VMap extends Record<string, any>> {
   readonly $variant: keyof VMap & string;
   readonly $value: VMap[keyof VMap & string];
 
-  $is<K extends keyof VMap & string>(variant: K): this is VariantOf<this, K>;
+  $is<K extends keyof VMap & string>(variant: K): this is VariantOf<this, K & VariantNames<this>>;
   $match<R>(arms: MatchArms<VMap, R>): R;
 }
 

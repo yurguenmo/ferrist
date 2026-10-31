@@ -6,7 +6,7 @@
  */
 
 import { panic } from "../panic.js";
-import type { BaseEnumInstance, EnumClass, MatchArms, VariantOf } from "./types.js";
+import type { BaseEnumInstance, EnumClass, MatchArms, VariantNames, VariantOf } from "./types.js";
 import { ENUM_VARIANTS } from "./types.js";
 
 /**
@@ -26,7 +26,7 @@ export abstract class BaseEnum<VMap extends Record<string, any>> implements Base
   /**
    * Type-guard checking if this instance is of the specified variant.
    */
-  $is<K extends keyof VMap & string>(variant: K): this is VariantOf<this, K> {
+  $is<K extends keyof VMap & string>(variant: K): this is VariantOf<this, K & VariantNames<this>> {
     return (this.$variant as any) === variant;
   }
 

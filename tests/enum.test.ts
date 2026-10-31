@@ -291,6 +291,13 @@ describe("Enum - Variant-Specific Methods (Typestate Pattern)", () => {
     auth.authorize("A2");
   });
 
+  it("rejects non-existent variant names in VariantOf at compile time", () => {
+    // @ts-expect-error 'NonExistent' is not assignable to 'Draft' | 'Authorized' | 'Captured'
+    type InvalidVariant = VariantOf<PaymentState, "NonExistent">;
+    const test: InvalidVariant = undefined as never;
+    expect(test).toBeUndefined();
+  });
+
   it("allows unlocking variant-specific methods on a generic union via $is", () => {
     function processState(state: PaymentState): string {
       // @ts-expect-error Cannot call authorize on generic PaymentState without narrowing
