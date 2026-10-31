@@ -3,6 +3,8 @@
 > Bringing Rust's algebraic type safety, pattern matching, Result, Option, and Try operator (`?`) to TypeScript.
 
 [![npm version](https://img.shields.io/npm/v/ferrist.svg)](https://www.npmjs.com/package/ferrist)
+[![CI](https://github.com/yurguenmo/ferrist/actions/workflows/ci.yml/badge.svg)](https://github.com/yurguenmo/ferrist/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/yurguenmo/ferrist/blob/main/LICENSE)
 [![bundle size](https://img.shields.io/bundlephobia/minzip/ferrist)](https://bundlephobia.com/package/ferrist)
 
 ---
