@@ -16,7 +16,7 @@ export type EnumBranch<
   VMap extends Record<string, any>,
   K extends keyof VMap & string,
   TInstance = {},
-  TSelf = any
+  TSelf = any,
 > = {
   /** The active variant discriminator name. */
   readonly $variant: K;
@@ -29,7 +29,7 @@ export type EnumBranch<
    * Type-guard checking if this instance is of the specified variant.
    */
   $is<VariantName extends keyof VMap & string>(
-    variant: VariantName
+    variant: VariantName,
   ): this is EnumBranch<VMap, VariantName, TInstance, TSelf>;
 
   /**
@@ -41,11 +41,7 @@ export type EnumBranch<
 /**
  * Union of all variant branches representing the concrete Enum instance type.
  */
-export type EnumInstance<
-  VMap extends Record<string, any>,
-  TInstance = {},
-  TSelf = any
-> = {
+export type EnumInstance<VMap extends Record<string, any>, TInstance = {}, TSelf = any> = {
   [K in keyof VMap & string]: EnumBranch<VMap, K, TInstance, TSelf>;
 }[keyof VMap & string];
 
@@ -57,14 +53,10 @@ export type EnumInstance<
  */
 export type MatchArms<VMap extends Record<string, any>, R> =
   | {
-      [K in keyof VMap]: VMap[K] extends void | undefined
-        ? () => R
-        : (val: VMap[K]) => R;
+      [K in keyof VMap]: VMap[K] extends void | undefined ? () => R : (val: VMap[K]) => R;
     }
   | (Partial<{
-      [K in keyof VMap]: VMap[K] extends void | undefined
-        ? () => R
-        : (val: VMap[K]) => R;
+      [K in keyof VMap]: VMap[K] extends void | undefined ? () => R : (val: VMap[K]) => R;
     }> & {
       _(): R;
     });
@@ -76,18 +68,13 @@ export type UnitVariant<
   VMap extends Record<string, any>,
   K extends keyof VMap & string,
   TInstance = {},
-  TSelf = any
-> = EnumBranch<VMap, K, TInstance, TSelf> &
-  (() => EnumBranch<VMap, K, TInstance, TSelf>);
+  TSelf = any,
+> = EnumBranch<VMap, K, TInstance, TSelf> & (() => EnumBranch<VMap, K, TInstance, TSelf>);
 
 /**
  * Dictionary of variant constructors exposed on the Enum object.
  */
-export type VariantConstructors<
-  VMap extends Record<string, any>,
-  TInstance = {},
-  TSelf = any
-> = {
+export type VariantConstructors<VMap extends Record<string, any>, TInstance = {}, TSelf = any> = {
   readonly [K in keyof VMap & string]: VMap[K] extends void | undefined
     ? UnitVariant<VMap, K, TInstance, TSelf>
     : (val: VMap[K]) => EnumBranch<VMap, K, TInstance, TSelf>;
@@ -96,17 +83,13 @@ export type VariantConstructors<
 /**
  * Builder interface for attaching static and instance methods.
  */
-export interface EnumBuilder<
-  VMap extends Record<string, any>,
-  TStatic = {},
-  TInstance = {}
-> {
+export interface EnumBuilder<VMap extends Record<string, any>, TStatic = {}, TInstance = {}> {
   /**
    * Attaches static associated functions or factory helpers to the Enum object.
    * Inside method bodies, `this` references the Enum constructor.
    */
   static<NewStatic extends Record<string, any>>(
-    methods: NewStatic & ThisType<VariantConstructors<VMap, TInstance, any> & TStatic & NewStatic>
+    methods: NewStatic & ThisType<VariantConstructors<VMap, TInstance, any> & TStatic & NewStatic>,
   ): EnumType<VMap, TStatic & NewStatic, TInstance>;
 
   /**
@@ -114,7 +97,7 @@ export interface EnumBuilder<
    * Inside method bodies, `this` references the current Enum instance.
    */
   instance<NewInstance extends Record<string, any>>(
-    methods: NewInstance & ThisType<EnumInstance<VMap, TInstance & NewInstance, any>>
+    methods: NewInstance & ThisType<EnumInstance<VMap, TInstance & NewInstance, any>>,
   ): EnumType<VMap, TStatic, TInstance & NewInstance>;
 }
 
@@ -124,7 +107,7 @@ export interface EnumBuilder<
 export type EnumType<
   VMap extends Record<string, any>,
   TStatic = {},
-  TInstance = {}
+  TInstance = {},
 > = VariantConstructors<VMap, TInstance, any> &
   TStatic &
   EnumBuilder<VMap, TStatic, TInstance> & {

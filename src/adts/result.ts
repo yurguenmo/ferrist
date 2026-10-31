@@ -31,7 +31,7 @@ export interface IOk<T> {
   isErr(): false;
 
   /** Type-guard checking if this instance is of the specified variant. */
-  $is<V extends "Ok" | "Err">(variant: V): this is (V extends "Ok" ? IOk<T> : never);
+  $is<V extends "Ok" | "Err">(variant: V): this is V extends "Ok" ? IOk<T> : never;
 
   /** Exhaustive pattern matching over `Ok` and `Err`. */
   $match<R>(arms: PartialResultMatchArms<T, never, R>): R;
@@ -74,7 +74,7 @@ export interface IErr<E> {
   isErr(): this is IErr<E>;
 
   /** Type-guard checking if this instance is of the specified variant. */
-  $is<V extends "Ok" | "Err">(variant: V): this is (V extends "Err" ? IErr<E> : never);
+  $is<V extends "Ok" | "Err">(variant: V): this is V extends "Err" ? IErr<E> : never;
 
   /** Exhaustive pattern matching over `Ok` and `Err`. */
   $match<R>(arms: PartialResultMatchArms<never, E, R>): R;
@@ -120,7 +120,7 @@ class OkImpl<T> implements IOk<T> {
     return false;
   }
 
-  $is<V extends "Ok" | "Err">(variant: V): this is (V extends "Ok" ? IOk<T> : never) {
+  $is<V extends "Ok" | "Err">(variant: V): this is V extends "Ok" ? IOk<T> : never {
     return variant === "Ok";
   }
 
@@ -183,7 +183,7 @@ class ErrImpl<E> implements IErr<E> {
     return true;
   }
 
-  $is<V extends "Ok" | "Err">(variant: V): this is (V extends "Err" ? IErr<E> : never) {
+  $is<V extends "Ok" | "Err">(variant: V): this is V extends "Err" ? IErr<E> : never {
     return variant === "Err";
   }
 

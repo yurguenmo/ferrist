@@ -31,7 +31,7 @@ export interface ISome<T> {
   isNone(): false;
 
   /** Type-guard checking if this instance is of the specified variant. */
-  $is<V extends "Some" | "None">(variant: V): this is (V extends "Some" ? ISome<T> : never);
+  $is<V extends "Some" | "None">(variant: V): this is V extends "Some" ? ISome<T> : never;
 
   /** Exhaustive pattern matching over `Some` and `None`. */
   $match<R>(arms: PartialOptionMatchArms<T, R>): R;
@@ -69,7 +69,7 @@ export interface INone<T = never> {
   isNone(): this is INone<T>;
 
   /** Type-guard checking if this instance is of the specified variant. */
-  $is<V extends "Some" | "None">(variant: V): this is (V extends "None" ? INone<T> : never);
+  $is<V extends "Some" | "None">(variant: V): this is V extends "None" ? INone<T> : never;
 
   /** Exhaustive pattern matching over `Some` and `None`. */
   $match<R>(arms: PartialOptionMatchArms<never, R>): R;
@@ -109,7 +109,7 @@ class SomeImpl<T> implements ISome<T> {
     return false;
   }
 
-  $is<V extends "Some" | "None">(variant: V): this is (V extends "Some" ? ISome<T> : never) {
+  $is<V extends "Some" | "None">(variant: V): this is V extends "Some" ? ISome<T> : never {
     return variant === "Some";
   }
 
@@ -160,7 +160,7 @@ class NoneImpl implements INone<never> {
     return true;
   }
 
-  $is<V extends "Some" | "None">(variant: V): this is (V extends "None" ? INone<never> : never) {
+  $is<V extends "Some" | "None">(variant: V): this is V extends "None" ? INone<never> : never {
     return variant === "None";
   }
 

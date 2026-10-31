@@ -1,5 +1,5 @@
-import { describe, it, expect, expectTypeOf } from "vitest";
-import { Result, Ok, Err, PanicError } from "../src/index.js";
+import { describe, expect, expectTypeOf, it } from "vitest";
+import { Err, Ok, PanicError, type Result } from "../src/index.js";
 
 describe("Result ADT", () => {
   it("constructs Ok variant with correct properties and guards", () => {
@@ -49,13 +49,15 @@ describe("Result ADT", () => {
 
     const ok = Ok("success_payload");
     expect(() => ok.unwrapErr()).toThrowError(PanicError);
-    expect(() => ok.unwrapErr()).toThrowError(/Called Result\.unwrapErr\(\) on an Ok: success_payload/);
+    expect(() => ok.unwrapErr()).toThrowError(
+      /Called Result\.unwrapErr\(\) on an Ok: success_payload/,
+    );
   });
 
   it("handles unwrapOr and unwrapOrElse with type safety", () => {
     const ok = Ok(10);
     expect(ok.unwrapOr(50)).toBe(10);
-    expect(ok.unwrapOrElse((err) => 50)).toBe(10);
+    expect(ok.unwrapOrElse((_err) => 50)).toBe(10);
 
     const err = Err("not_found");
     expect(err.unwrapOr(50)).toBe(50);
@@ -153,13 +155,13 @@ describe("Result ADT", () => {
     const okRes: Result<number, string> = Ok(10);
     expect(() =>
       // @ts-expect-error Missing 'Ok' branch in exhaustive match
-      okRes.$match({ Err: (e) => e })
+      okRes.$match({ Err: (e) => e }),
     ).toThrowError(PanicError);
 
     const errRes: Result<number, string> = Err("bad");
     expect(() =>
       // @ts-expect-error Missing 'Err' branch in exhaustive match
-      errRes.$match({ Ok: (v) => v })
+      errRes.$match({ Ok: (v) => v }),
     ).toThrowError(PanicError);
   });
 
@@ -192,7 +194,7 @@ describe("Result ADT", () => {
   it("widens Ok and Err seamlessly without type casting", () => {
     function parseNumber(input: string): Result<number, string> {
       const parsed = Number(input);
-      if (isNaN(parsed)) {
+      if (Number.isNaN(parsed)) {
         return Err(`Invalid number: ${input}`); // Result<never, string> widens to Result<number, string>
       }
       return Ok(parsed); // Result<number, never> widens to Result<number, string>

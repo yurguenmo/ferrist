@@ -1,19 +1,11 @@
-import { describe, it, expect, expectTypeOf } from "vitest";
-import {
-  fn,
-  Result,
-  Ok,
-  Err,
-  Option,
-  Some,
-  None,
-} from "../src/index.js";
+import { describe, expect, expectTypeOf, it } from "vitest";
+import { Err, fn, None, Ok, type Option, type Result, Some } from "../src/index.js";
 
 describe("Try Runner - fn", () => {
   describe("Synchronous Result Pipelines", () => {
     function parsePositive(input: string): Result<number, string> {
       const n = Number(input);
-      if (isNaN(n)) return Err("Not a number");
+      if (Number.isNaN(n)) return Err("Not a number");
       if (n <= 0) return Err("Must be positive");
       return Ok(n);
     }
@@ -25,7 +17,9 @@ describe("Try Runner - fn", () => {
     });
 
     it("unwraps values and returns success when all operations succeed", () => {
-      expectTypeOf(divideInputs).toEqualTypeOf<(aStr: string, bStr: string) => Result<number, string>>();
+      expectTypeOf(divideInputs).toEqualTypeOf<
+        (aStr: string, bStr: string) => Result<number, string>
+      >();
       const res = divideInputs("20", "4");
 
       expect(res.$variant).toBe("Ok");
@@ -104,7 +98,9 @@ describe("Try Runner - fn", () => {
   });
 
   describe("Asynchronous Generators (async function*)", () => {
-    async function fetchUser(id: string): Promise<Result<{ id: string; name: string }, "NOT_FOUND">> {
+    async function fetchUser(
+      id: string,
+    ): Promise<Result<{ id: string; name: string }, "NOT_FOUND">> {
       if (id === "1") return Ok({ id: "1", name: "Bob" });
       return Err("NOT_FOUND" as const);
     }
@@ -126,7 +122,10 @@ describe("Try Runner - fn", () => {
 
     it("handles async generator workflows successfully", async () => {
       const res = await loadProfile("1");
-      expectTypeOf(res.unwrap()).toEqualTypeOf<{ user: { id: string; name: string }; permissions: string[] }>();
+      expectTypeOf(res.unwrap()).toEqualTypeOf<{
+        user: { id: string; name: string };
+        permissions: string[];
+      }>();
 
       expect(res.isOk()).toBe(true);
       expect(res.unwrap()).toEqual({

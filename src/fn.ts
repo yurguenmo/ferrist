@@ -28,12 +28,12 @@
 
 // Overload 1: Async Generator (async function*)
 export function fn<Args extends any[], Y, R>(
-  generatorFn: (...args: Args) => AsyncGenerator<Y, R, any>
+  generatorFn: (...args: Args) => AsyncGenerator<Y, R, any>,
 ): (...args: Args) => Promise<Y | R>;
 
 // Overload 2: Sync Generator (function*)
 export function fn<Args extends any[], Y, R>(
-  generatorFn: (...args: Args) => Generator<Y, R, any>
+  generatorFn: (...args: Args) => Generator<Y, R, any>,
 ): (...args: Args) => Y | R;
 
 // Implementation

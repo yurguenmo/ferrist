@@ -1,19 +1,18 @@
 export {
-  Result,
-  Ok,
-  Err,
-  type IOk,
-  type IErr,
-  type ResultMatchArms,
-  type PartialResultMatchArms,
-} from "./result.js";
-
-export {
-  Option,
-  Some,
-  None,
-  type ISome,
   type INone,
+  type ISome,
+  None,
+  Option,
   type OptionMatchArms,
   type PartialOptionMatchArms,
+  Some,
 } from "./option.js";
+export {
+  Err,
+  type IErr,
+  type IOk,
+  Ok,
+  type PartialResultMatchArms,
+  Result,
+  type ResultMatchArms,
+} from "./result.js";

@@ -6,7 +6,7 @@
  */
 
 import { panic } from "../panic.js";
-import { ENUM_INSTANCE, EnumType } from "./types.js";
+import { ENUM_INSTANCE, type EnumType } from "./types.js";
 
 /**
  * Creates an immutable enum variant instance.
@@ -15,7 +15,7 @@ function createInstance(
   variant: string,
   value: any,
   instanceMethods: Record<string, any>,
-  self: any
+  self: any,
 ) {
   const instance = Object.create(instanceMethods);
   instance.$variant = variant;
@@ -92,18 +92,14 @@ export function Enum<VMap extends Record<string, any>>(): EnumType<VMap> {
     let variant = variantCache.get(name);
     if (!variant) {
       // The variant is callable: e.g. WebEvent.Click([10, 20])
-      const fn: any = function (val?: any) {
-        return createInstance(name, val, instanceMethods, proxy);
-      };
+      const fn: any = (val?: any) => createInstance(name, val, instanceMethods, proxy);
 
       // Also directly usable as an instance for Unit variants: e.g. WebEvent.PageLoad
       fn.$variant = name;
       fn.$value = undefined;
       fn.$Self = proxy;
-      fn.$is = function (v: string): boolean {
-        return v === name;
-      };
-      fn.$match = function (arms: any) {
+      fn.$is = (v: string): boolean => v === name;
+      fn.$match = (arms: any) => {
         if (typeof arms[name] === "function") {
           return arms[name]();
         }

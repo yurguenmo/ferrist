@@ -1,5 +1,5 @@
-import { describe, it, expect, expectTypeOf } from "vitest";
-import { Option, Some, None, PanicError } from "../src/index.js";
+import { describe, expect, expectTypeOf, it } from "vitest";
+import { None, Option, PanicError, Some } from "../src/index.js";
 
 describe("Option ADT", () => {
   it("constructs Some variant with correct properties and guards", () => {
@@ -139,13 +139,13 @@ describe("Option ADT", () => {
     const someOpt: Option<number> = Some(10);
     expect(() =>
       // @ts-expect-error Missing 'Some' branch in exhaustive match
-      someOpt.$match({ None: () => 0 })
+      someOpt.$match({ None: () => 0 }),
     ).toThrowError(PanicError);
 
     const noneOpt: Option<number> = None;
     expect(() =>
       // @ts-expect-error Missing 'None' branch in exhaustive match
-      noneOpt.$match({ Some: (v) => v })
+      noneOpt.$match({ Some: (v) => v }),
     ).toThrowError(PanicError);
   });
 

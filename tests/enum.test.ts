@@ -1,5 +1,5 @@
-import { describe, it, expect, expectTypeOf } from "vitest";
-import { Enum, Infer, PanicError, Err, Ok } from "../src/index.js";
+import { describe, expect, expectTypeOf, it } from "vitest";
+import { Enum, Err, type Infer, Ok, PanicError } from "../src/index.js";
 
 describe("Enum - Unit Enum (C-Like)", () => {
   const OrderStatus = Enum<{
@@ -97,17 +97,16 @@ describe("Enum - Data Variants (Array, Primitive, and Object)", () => {
     Click: [number, number];
     KeyPress: string;
     Paste: { text: string; source: string };
-  }>()
-    .instance({
-      describe(): string {
-        return this.$match({
-          PageLoad: () => "Page loaded",
-          Click: ([x, y]) => `Clicked at (${x}, ${y})`,
-          KeyPress: (key) => `Key pressed: ${key}`,
-          Paste: ({ text, source }) => `Pasted "${text}" from ${source}`,
-        });
-      },
-    });
+  }>().instance({
+    describe(): string {
+      return this.$match({
+        PageLoad: () => "Page loaded",
+        Click: ([x, y]) => `Clicked at (${x}, ${y})`,
+        KeyPress: (key) => `Key pressed: ${key}`,
+        Paste: ({ text, source }) => `Pasted "${text}" from ${source}`,
+      });
+    },
+  });
 
   type WebEvent = Infer<typeof WebEvent>;
 
@@ -179,7 +178,7 @@ describe("Enum - Data Variants (Array, Primitive, and Object)", () => {
 
     expect(() =>
       // @ts-expect-error Missing Click, PageLoad, Paste branches in exhaustive match
-      ev.$match({ PageLoad: () => "ok" })
+      ev.$match({ PageLoad: () => "ok" }),
     ).toThrowError(PanicError);
   });
 });
