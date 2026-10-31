@@ -1,0 +1,9 @@
+#!/bin/sh
+# Biome staged check and auto-formatting
+npx @biomejs/biome check --write --staged
+
+# Re-stage formatted files
+git add -u
+
+# Run TypeScript type check
+npm run typecheck
